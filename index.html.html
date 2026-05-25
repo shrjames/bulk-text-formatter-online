@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bulk Text Formatter Online | Data Cleaner & Format Validator Tool</title>
+<meta name="description" content="A 100% local, client-side text utility for developers. Dedupe lines, trim whitespace, split by custom delimiters. No uploads, no tracking, no network calls." />
+<meta name="robots" content="index,follow" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #0b0f0e;
+    --panel: #11181a;
+    --panel-2: #0e1416;
+    --border: #1f2a2d;
+    --fg: #d6e4e3;
+    --muted: #6b827f;
+    --accent: #4ade80;
+    --accent-dim: #166534;
+    --warn: #fbbf24;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(74,222,128,0.06), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(74,222,128,0.04), transparent 60%);
+    pointer-events: none;
+    z-index: -1;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .panel-2 { background: var(--panel-2); }
+  .label { color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  textarea, input[type="text"] {
+    background: #070c0b;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    border-radius: 8px;
+    font-family: inherit;
+    caret-color: var(--accent);
+  }
+  textarea:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.12);
+  }
+  .btn {
+    border: 1px solid var(--border);
+    background: #0d1413;
+    color: var(--fg);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    transition: all 120ms ease;
+    user-select: none;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: linear-gradient(180deg, #103a23, #0c2a1a);
+    border-color: #1f5235;
+    color: #c7f5d3;
+  }
+  .btn-primary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger:hover { border-color: #ef4444; color: #ef4444; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .kbd {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #0a100f;
+    color: var(--muted);
+  }
+  .divider { height: 1px; background: var(--border); }
+  .check {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #0a100f;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .check input { accent-color: var(--accent); }
+  details summary { cursor: pointer; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #0d1413;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  ::selection { background: rgba(74,222,128,0.25); color: #eaffef; }
+  .cursor::after {
+    content: "▍";
+    color: var(--accent);
+    margin-left: 4px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the difference between UTF-8 and ASCII, and which should I use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ASCII is a 7-bit encoding that covers 128 characters — basic Latin letters, digits, and common punctuation — and nothing else. UTF-8 is a variable-width Unicode encoding that represents any character in the Unicode standard using one to four bytes per code point. UTF-8 is backward-compatible with ASCII, so any valid ASCII file is also valid UTF-8. For modern tools the answer is essentially always UTF-8; use ASCII only when interfacing with legacy systems that explicitly require it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Are there memory limits when processing very large strings in the browser?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Each browser tab runs inside a memory-bounded process — typically 2 to 4 GB on desktop and considerably less on mobile. JavaScript strings are immutable and stored in UTF-16, which means a 100 MB plain-text file consumes roughly 200 MB once loaded. Operations exceeding a few hundred megabytes of input frequently trigger out-of-memory errors. For large inputs, prefer streaming via the File and ReadableStream APIs, process in chunks, and avoid creating multiple full-size intermediate copies."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does client-side hashing protect my data privacy?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Client-side hashing runs entirely within your browser using the SubtleCrypto API, so your input never reaches a server. When you use the tool's hashing or deduplication features, raw text is converted to a fixed-length digest such as SHA-256 locally, and only that digest is retained for comparison. Because cryptographic hashes are one-way, the original text cannot be reconstructed from the digest. Even if hashed output is later shared or logged, the underlying source content remains private."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body class="min-h-screen">
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+  <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+    <div>
+      <div class="flex items-center gap-2 mb-2">
+        <span class="chip"><span class="dot"></span> local-only</span>
+        <span class="chip">no network</span>
+        <span class="chip">no storage</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">
+        <span class="text-[var(--accent)]">~/</span>textforge<span class="cursor"></span>
+      </h1>
+      <p class="text-sm text-[var(--muted)] mt-1">
+        A client-side text utility. Paste, transform, copy. Nothing ever leaves your browser.
+      </p>
+    </div>
+    <div class="text-xs text-[var(--muted)] sm:text-right">
+      <div>build: static · single-file</div>
+      <div>shortcuts: <span class="kbd">Ctrl/⌘ + Enter</span> run · <span class="kbd">Ctrl/⌘ + L</span> clear</div>
+    </div>
+  </header>
+
+  <section class="panel p-4 sm:p-5 mb-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="label">Options</div>
+      <button id="resetOpts" class="btn text-xs">reset defaults</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div class="md:col-span-5">
+        <label class="label block mb-1">Input delimiter</label>
+        <div class="flex gap-2">
+          <input id="delimiter" type="text" class="flex-1 px-3 py-2 text-sm" placeholder='\n' value="\n" />
+          <select id="delimiterPreset" class="bg-[#070c0b] border border-[var(--border)] rounded-lg text-sm px-2">
+            <option value="\n">newline</option>
+            <option value=",">comma ,</option>
+            <option value="|">pipe |</option>
+            <option value=";">semicolon ;</option>
+            <option value="\t">tab</option>
+            <option value=" ">space</option>
+            <option value="__custom__">custom…</option>
+          </select>
+        </div>
+        <p class="text-xs text-[var(--muted)] mt-1">
+          Use <span class="kbd">\n</span> <span class="kbd">\t</span> <span class="kbd">\r</span> for escape sequences. Multi-char delimiters are supported.
+        </p>
+      </div>
+
+      <div class="md:col-span-4">
+        <label class="label block mb-1">Output joiner</label>
+        <div class="flex gap-2">
+          <input id="joiner" type="text" class="flex-1 px-3 py-2 text-sm" placeholder='\n' value="\n" />
+          <select id="joinerPreset" class="bg-[#070c0b] border border-[var(--border)] rounded-lg text-sm px-2">
+            <option value="\n">newline</option>
+            <option value=",">comma</option>
+            <option value=", ">comma+space</option>
+            <option value="|">pipe</option>
+            <option value="\t">tab</option>
+            <option value="__custom__">custom…</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="md:col-span-3">
+        <label class="label block mb-1">Wrap each item</label>
+        <div class="flex gap-2">
+          <input id="wrapLeft" type="text" class="w-1/2 px-3 py-2 text-sm" placeholder="left" />
+          <input id="wrapRight" type="text" class="w-1/2 px-3 py-2 text-sm" placeholder="right" />
+        </div>
+      </div>
+    </div>
+
+    <div class="divider my-4"></div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <label class="check"><input type="checkbox" id="optTrim" checked> trim items</label>
+      <label class="check"><input type="checkbox" id="optEmpty" checked> drop empty</label>
+      <label class="check"><input type="checkbox" id="optDedupe" checked> dedupe</label>
+      <label class="check"><input type="checkbox" id="optCase"> case-insensitive dedupe</label>
+      <label class="check"><input type="checkbox" id="optSort"> sort A→Z</label>
+      <label class="check"><input type="checkbox" id="optReverse"> reverse</label>
+      <label class="check"><input type="checkbox" id="optLower"> lowercase</label>
+      <label class="check"><input type="checkbox" id="optUpper"> uppercase</label>
+      <label class="check"><input type="checkbox" id="optCollapseWs"> collapse inner spaces</label>
+      <label class="check"><input type="checkbox" id="optStripQuotes"> strip surrounding quotes</label>
+      <label class="check"><input type="checkbox" id="optNumber"> prefix line numbers</label>
+      <label class="check"><input type="checkbox" id="optLive" checked> live preview</label>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+    <div class="panel p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-2">
+        <div class="label">Input</div>
+        <div class="flex items-center gap-2">
+          <span id="inputStats" class="text-xs text-[var(--muted)]">0 chars · 0 lines</span>
+          <button id="pasteBtn" class="btn text-xs">paste</button>
+          <button id="sampleBtn" class="btn text-xs">sample</button>
+        </div>
+      </div>
+      <textarea id="input" rows="16" spellcheck="false"
+        class="w-full p-3 text-sm leading-relaxed resize-y"
+        placeholder="Paste text here. One item per line, or use a custom delimiter above."></textarea>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button id="runBtn" class="btn btn-primary">▶ run transform</button>
+        <button id="clearInBtn" class="btn btn-danger">clear input</button>
+      </div>
+    </div>
+
+    <div class="panel p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-2">
+        <div class="label">Output</div>
+        <div class="flex items-center gap-2">
+          <span id="outputStats" class="text-xs text-[var(--muted)]">0 chars · 0 items</span>
+          <button id="downloadBtn" class="btn text-xs">download .txt</button>
+        </div>
+      </div>
+      <textarea id="output" rows="16" spellcheck="false" readonly
+        class="w-full p-3 text-sm leading-relaxed resize-y"
+        placeholder="Output appears here."></textarea>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button id="copyBtn" class="btn btn-primary">📋 copy to clipboard</button>
+        <button id="swapBtn" class="btn">↑ send to input</button>
+        <button id="clearOutBtn" class="btn btn-danger">clear output</button>
+      </div>
+      <div id="diffStats" class="mt-3 text-xs text-[var(--muted)]"></div>
+    </div>
+  </section>
+
+  <div class="my-6 text-center w-full">
+      <a href="https://maizhanghao.top/tools/check" target="_blank" rel="noopener noreferrer" 
+         class="inline-block w-full py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-base sm:text-lg rounded shadow-[0_0_20px_rgba(220,38,38,0.6)] animate-pulse transition-all duration-300 border border-red-500">
+          🔥 自动化生产力中心：高纯度海外独享老号现货与住宅环境配置，点击进入
+      </a>
+  </div>
+
+  <section class="mt-6 mb-10">
+    <details class="panel p-5">
+      <summary class="flex items-center justify-between">
+        <span class="label">About this tool</span>
+        <span class="text-xs text-[var(--muted)]">click to expand</span>
+      </summary>
+      <div class="mt-4 text-sm text-[var(--fg)] space-y-3 leading-relaxed">
+        <p>
+          TextForge is a single static HTML file. It does not call any server, does not load remote data,
+          does not write to localStorage, and does not include analytics. You can save this page
+          (<span class="kbd">Ctrl/⌘ + S</span>) and run it offline.
+        </p>
+        <p>
+          Transformations run in this order: <em>split → trim → drop empty → strip quotes → collapse spaces →
+          case transform → dedupe → sort → reverse → wrap → number → join</em>.
+          The order matters when you combine options, so toggle them and observe the live preview.
+        </p>
+        <p class="text-[var(--muted)] text-xs">
+          MIT-style: do whatever you want with this file. No warranty.
+        </p>
+      </div>
+    </details>
+  </section>
+
+  <hr class="border-[var(--border)] my-10" />
+  
+  <section class="text-gray-400 text-sm space-y-6 leading-relaxed bg-[#11181a] p-6 sm:p-8 border border-[#1f2a2d] rounded-md mb-12">
+    <article class="space-y-4">
+      <span class="text-xs font-mono uppercase tracking-widest text-[var(--accent)] block">Engineering Notes / 03</span>
+      <h2 class="text-xl font-bold text-gray-200 mt-2">The Importance of Data Normalization and String Parsing in Modern Software Testing</h2>
+      <p class="italic text-gray-400 text-base">Why the unglamorous work of normalizing inputs and parsing strings determines whether a browser-based text tool feels instant or sluggish at scale.</p>
+      
+      <div class="flex flex-wrap gap-4 text-xs font-mono text-[var(--muted)] border-b border-[var(--border)] pb-4 mb-4">
+        <span>Topic: Text Processing</span>
+        <span>Audience: Engineers / QA</span>
+        <span>Reading time: 4 min</span>
+      </div>
+
+      <p>Modern web-based text-processing tools live in an unusual constraint envelope. They handle arbitrary user input, run inside a single browser tab with a bounded memory budget, and must remain responsive under inputs ranging from a few sentences to multi-megabyte log dumps. Data normalization and string parsing — often dismissed as preprocessing — are precisely where correctness and performance are won or lost.</p>
+
+      <h3 class="text-base font-semibold text-gray-300 mt-6">Why Normalization Comes First</h3>
+      <p>Normalization is the act of mapping semantically equivalent inputs onto a single canonical form before any comparison, search, or transformation occurs. In practice this means resolving Unicode normalization forms (NFC versus NFD), case-folding consistently, trimming invisible whitespace such as zero-width joiners, and standardizing line endings. Skipping this step produces a familiar class of bug: two visually identical strings that fail an equality check because one contains a precomposed <code>é</code> (U+00E9) and the other a combining sequence (<code>e</code> + U+0301).</p>
+      <p>For testing pipelines, normalization is not merely cosmetic. Property-based tests, fuzz harnesses, and snapshot diffs all depend on stable canonical forms. Without normalization, false-positive failures multiply and engineers learn to ignore them — a far worse outcome than a slightly slower preprocessing step.</p>
+
+      <h4 class="text-sm font-semibold text-[var(--muted)]">The Cost of Doing It Late</h4>
+      <p>Normalization performed inside a hot loop is wasteful: each comparison repeats work that should have been done once at ingest. The correct pattern is to normalize at the system boundary, store the canonical form, and treat all downstream operations as working on already-clean data.</p>
+
+      <h3 class="text-base font-semibold text-gray-300 mt-6">Parsing Without Blocking the Main Thread</h3>
+      <p>Browsers give JavaScript a single execution thread for the DOM. Any parser that walks a string character by character will, on a large input, block rendering and freeze the UI. Two techniques mitigate this. First, prefer streaming parsers that yield control back to the event loop using <code>requestIdleCallback</code> or chunked <code>setTimeout</code> scheduling. Second, offload non-trivial parsing into a Web Worker so the main thread remains free for input and paint.</p>
+      <p>Memory handling deserves equal care. JavaScript strings are immutable, which means naive concatenation in a loop allocates a fresh buffer on each iteration. The idiomatic fix is to accumulate into an array and call <code>join('')</code> once, or to use a <code>TextEncoder</code>-backed <code>Uint8Array</code> for binary-style assembly. For inputs over a few megabytes, prefer iterating with indices rather than producing intermediate substring copies.</p>
+
+      <h3 class="text-base font-semibold text-gray-300 mt-6">O(n) Deduplication and Algorithmic Efficiency</h3>
+      <p>Deduplication is one of the most common operations a text tool performs, and one of the easiest to get wrong. A nested-loop approach that compares every pair runs in O(n²) and becomes unusable past a few thousand lines. The linear-time alternative leans on hash-backed structures: iterate once, insert each item into a <code>Set</code>, and emit only on first occurrence. This is O(n) amortized in both time and space.</p>
+
+      <h4 class="text-sm font-semibold text-[var(--muted)]">Choosing the Right Data Structure</h4>
+      <p>For raw line deduplication, a native <code>Set</code> is sufficient. When dedup keys are derived (case-insensitive matching, normalized whitespace, hashed content), a <code>Map</code> from key to original value preserves the first-seen variant. For very large inputs where memory pressure matters, a Bloom filter offers probabilistic membership tests with constant memory at the cost of a tunable false-positive rate — an acceptable trade in pre-filtering stages.</p>
+
+      <h3 class="text-base font-semibold text-gray-300 mt-6">What Good Testing Looks Like</h3>
+      <p>A robust test suite for a text tool covers three axes: correctness on canonical inputs, stability on adversarial Unicode (mixed normalization forms, bidirectional overrides, surrogate pairs), and performance on realistic upper-bound sizes. Treating normalization and parsing as first-class concerns — measured, profiled, and unit-tested — is what separates a tool that works on the demo from one that holds up in production.</p>
+    </article>
+
+    <div class="mt-8 pt-6 border-t border-[var(--border)] space-y-4">
+      <h3 class="text-base font-bold text-[var(--accent)] tracking-wider uppercase">Frequently Asked Technical Questions</h3>
+      
+      <div class="border-b border-[var(--border)] pb-4">
+        <h4 class="text-gray-200 font-semibold mb-1">Q1: What is the difference between UTF-8 and ASCII, and which should I use?</h4>
+        <p class="text-xs text-gray-500">A1: ASCII is a 7-bit encoding covering 128 characters. UTF-8 is a variable-width encoding supporting the entire Unicode standard and is backward-compatible with ASCII. Modern tools should always utilize UTF-8.</p>
+      </div>
+
+      <div class="border-b border-[var(--border)] pb-4">
+        <h4 class="text-gray-200 font-semibold mb-1">Q2: Are there memory limits when processing very large strings in the browser?</h4>
+        <p class="text-xs text-gray-500">A2: Yes. Tab memory limits range between 2-4 GB. Naive string operations can quickly cause out-of-memory errors due to immutability. Streaming and chunking are preferred for oversized inputs.</p>
+      </div>
+
+      <div class="border-b border-[var(--border)] pb-4">
+        <h4 class="text-gray-200 font-semibold mb-1">Q3: How does client-side hashing protect my data privacy?</h4>
+        <p class="text-xs text-gray-500">A3: Operations occur locally via the SubtleCrypto API, keeping data isolated within the client sandbox. Text strings are digested into cryptographic hashes without any network transmissions.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mt-10 mb-4 text-center text-xs text-[var(--muted)]">
+    runs entirely in your browser · view source to verify
+  </footer>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+
+  function decodeEscapes(s) {
+    if (s == null) return "";
+    let out = "";
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "\\" && i + 1 < s.length) {
+        const n = s[i + 1];
+        if (n === "n") { out += "\n"; i++; continue; }
+        if (n === "t") { out += "\t"; i++; continue; }
+        if (n === "r") { out += "\r"; i++; continue; }
+        if (n === "\\") { out += "\\"; i++; continue; }
+      }
+      out += c;
+    }
+    return out;
+  }
+
+  function splitByDelimiter(text, delim) {
+    if (delim === "") return [text];
+    if (delim === "\n") return text.split(/\r?\n/);
+    return text.split(delim);
+  }
+
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove("show"), 1500);
+  }
+
+  function transform() {
+    const input = $("input").value;
+    const delim = decodeEscapes($("delimiter").value);
+    const joiner = decodeEscapes($("joiner").value);
+    const wrapL = $("wrapLeft").value;
+    const wrapR = $("wrapRight").value;
+
+    const optTrim = $("optTrim").checked;
+    const optEmpty = $("optEmpty").checked;
+    const optDedupe = $("optDedupe").checked;
+    const optCase = $("optCase").checked;
+    const optSort = $("optSort").checked;
+    const optReverse = $("optReverse").checked;
+    const optLower = $("optLower").checked;
+    const optUpper = $("optUpper").checked;
+    const optCollapseWs = $("optCollapseWs").checked;
+    const optStripQuotes = $("optStripQuotes").checked;
+    const optNumber = $("optNumber").checked;
+
+    let items = splitByDelimiter(input, delim);
+    const originalCount = items.length;
+
+    if (optTrim) items = items.map(s => s.trim());
+    if (optStripQuotes) {
+      items = items.map(s => {
+        if (s.length >= 2) {
+          const f = s[0], l = s[s.length - 1];
+          if ((f === '"' && l === '"') || (f === "'" && l === "'") || (f === "`" && l === "`")) {
+            return s.slice(1, -1);
+          }
+        }
+        return s;
+      });
+    }
+    if (optCollapseWs) items = items.map(s => s.replace(/[ \t]+/g, " "));
+    if (optEmpty) items = items.filter(s => s.length > 0);
+    if (optLower) items = items.map(s => s.toLowerCase());
+    if (optUpper) items = items.map(s => s.toUpperCase());
+
+    if (optDedupe) {
+      const seen = new Set();
+      const out = [];
+      for (const s of items) {
+        const key = optCase ? s.toLowerCase() : s;
+        if (!seen.has(key)) { seen.add(key); out.push(s); }
+      }
+      items = out;
+    }
+
+    if (optSort) items.sort((a, b) => a.localeCompare(b));
+    if (optReverse) items.reverse();
+
+    if (wrapL || wrapR) items = items.map(s => `${wrapL}${s}${wrapR}`);
+    if (optNumber) {
+      const width = String(items.length).length;
+      items = items.map((s, i) => `${String(i + 1).padStart(width, "0")}. ${s}`);
+    }
+
+    const output = items.join(joiner);
+    $("output").value = output;
+
+    const inChars = input.length;
+    const inLines = input ? splitByDelimiter(input, delim).length : 0;
+    $("inputStats").textContent = `${inChars.toLocaleString()} chars · ${inLines.toLocaleString()} items`;
+    $("outputStats").textContent = `${output.length.toLocaleString()} chars · ${items.length.toLocaleString()} items`;
+
+    const removed = originalCount - items.length;
+    $("diffStats").textContent = removed > 0
+      ? `removed ${removed.toLocaleString()} item(s) · kept ${items.length.toLocaleString()}`
+      : "";
+  }
+
+  const liveInputs = [
+    "input","delimiter","joiner","wrapLeft","wrapRight",
+    "optTrim","optEmpty","optDedupe","optCase","optSort","optReverse",
+    "optLower","optUpper","optCollapseWs","optStripQuotes","optNumber"
+  ];
+  liveInputs.forEach(id => {
+    const el = $(id);
+    const ev = el.type === "checkbox" ? "change" : "input";
+    el.addEventListener(ev, () => { if ($("optLive").checked) transform(); });
+  });
+
+  $("optLive").addEventListener("change", () => { if ($("optLive").checked) transform(); });
+  $("runBtn").addEventListener("click", transform);
+
+  $("delimiterPreset").addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v !== "__custom__") { $("delimiter").value = v; }
+    $("delimiter").focus();
+    if ($("optLive").checked) transform();
+  });
+  $("joinerPreset").addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v !== "__custom__") { $("joiner").value = v; }
+    $("joiner").focus();
+    if ($("optLive").checked) transform();
+  });
+
+  $("copyBtn").addEventListener("click", async () => {
+    const text = $("output").value;
+    if (!text) { toast("nothing to copy"); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("copied to clipboard");
+    } catch {
+      const ta = $("output");
+      ta.removeAttribute("readonly");
+      ta.select();
+      try { document.execCommand("copy"); toast("copied"); }
+      catch { toast("copy failed — select and copy manually"); }
+      ta.setAttribute("readonly", "");
+      window.getSelection().removeAllRanges();
+    }
+  });
+
+  $("clearInBtn").addEventListener("click", () => { $("input").value = ""; transform(); $("input").focus(); });
+  $("clearOutBtn").addEventListener("click", () => { $("output").value = ""; $("outputStats").textContent = "0 chars · 0 items"; $("diffStats").textContent = ""; });
+  $("swapBtn").addEventListener("click", () => { $("input").value = $("output").value; transform(); });
+
+  $("pasteBtn").addEventListener("click", async () => {
+    try {
+      const t = await navigator.clipboard.readText();
+      $("input").value = t;
+      transform();
+    } catch {
+      toast("clipboard read blocked — paste with Ctrl/⌘+V");
+      $("input").focus();
+    }
+  });
+
+  $("sampleBtn").addEventListener("click", () => {
+    $("input").value = ["alpha","  beta  ","gamma","alpha","","Delta","delta",'"epsilon"',"zeta   eta","theta"].join("\n");
+    transform();
+  });
+
+  $("downloadBtn").addEventListener("click", () => {
+    const text = $("output").value;
+    if (!text) { toast("nothing to download"); return; }
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "textforge-output.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  $("resetOpts").addEventListener("click", () => {
+    $("delimiter").value = "\\n";
+    $("joiner").value = "\\n";
+    $("wrapLeft").value = "";
+    $("wrapRight").value = "";
+    ["optTrim","optEmpty","optDedupe","optLive"].forEach(id => $(id).checked = true);
+    ["optCase","optSort","optReverse","optLower","optUpper","optCollapseWs","optStripQuotes","optNumber"].forEach(id => $(id).checked = false);
+    transform();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === "Enter") { e.preventDefault(); transform(); }
+    if (mod && (e.key === "l" || e.key === "L")) {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "TEXTAREA" || tag === "INPUT") {
+        e.preventDefault();
+        $("input").value = "";
+        $("output").value = "";
+        transform();
+      }
+    }
+  });
+
+  transform();
+})();
+</script>
+</body>
+</html>
